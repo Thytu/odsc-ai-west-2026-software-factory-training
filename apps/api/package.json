@@ -1,0 +1,10 @@
+{
+  "name": "@eventdesk/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@eventdesk/data": "workspace:*",
+    "fastify": "^5.12.5"
+  }
+}

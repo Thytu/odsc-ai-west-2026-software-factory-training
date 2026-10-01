@@ -1,0 +1,22 @@
+{
+  "name": "eventdesk",
+  "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "dev": "pnpm seed && concurrently -k -n api,worker,web -c cyan,magenta,green \"tsx watch apps/api/src/index.ts\" \"tsx watch apps/worker/src/index.ts\" \"pnpm --dir apps/web dev\"",
+    "seed": "tsx scripts/seed.ts",
+    "reset": "tsx scripts/reset.ts",
+    "check": "tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/worker/tsconfig.json && pnpm --dir apps/web exec tsc --noEmit",
+    "build": "pnpm --dir apps/web build"
+  },
+  "dependencies": {
+    "@eventdesk/data": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "concurrently": "^10.0.5",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0"
+  }
+}

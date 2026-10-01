@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --ink: #172034;
+  --muted: #728095;
+  --line: #e6ebf1;
+  --surface: #ffffff;
+  --canvas: #f7f9fc;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--canvas); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+.legacy-room-tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  border: 1px solid #d4dfec;
+  background: #edf4fc;
+  color: #32557c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 8px;
+  text-transform: uppercase;
+}
