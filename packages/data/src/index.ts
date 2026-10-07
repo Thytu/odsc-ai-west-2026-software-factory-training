@@ -78,17 +78,6 @@ export function listSessions(db: Database) {
   `).all();
 }
 
-export function getSession(db: Database, id: string) {
-  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id);
-  if (!session) return null;
-  const registrations = db.prepare(`
-    SELECT a.id, a.name, a.email, a.company, r.status
-    FROM registrations r JOIN attendees a ON a.id = r.attendee_id
-    WHERE r.session_id = ? ORDER BY a.name
-  `).all(id);
-  return { ...session, registrations };
-}
-
 export function listAttendees(db: Database) {
   return db.prepare('SELECT * FROM attendees ORDER BY name').all();
 }
