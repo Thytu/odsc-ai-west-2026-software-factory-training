@@ -29,7 +29,7 @@ async function getSession(db: Database, id: string) {
 }
 
 const db = openDatabase();
-const app = Fastify({ logger: false, genReqId: randomUUID });
+const app = Fastify({ logger: false, genReqId: () => randomUUID() });
 
 app.addHook('onRequest', async (request, reply) => {
   reply.header('x-request-id', request.id);
@@ -42,7 +42,7 @@ app.addHook('onResponse', async (request, reply) => {
 
 app.get('/health', async () => {
   await listSessions(db);
-  return { ok: true, service: 'eventdesk-api', version: process.env.DEPLOY_VERSION ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'local', environment: process.env.PORTLESS_URL ?? process.env.VERCEL_URL ?? 'local' };
+  return { ok: true, service: 'eventdesk-api', version: process.env.DEPLOY_VERSION || process.env.VERCEL_GIT_COMMIT_SHA || 'local', environment: process.env.PORTLESS_URL ?? process.env.VERCEL_URL ?? 'local' };
 });
 app.get('/sessions', async () => listSessions(db));
 app.get<{ Params: { id: string } }>('/sessions/:id', async (request, reply) => {
