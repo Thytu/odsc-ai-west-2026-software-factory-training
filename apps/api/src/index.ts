@@ -110,13 +110,12 @@ app.setErrorHandler((error, request, reply) => {
 });
 
 const port = Number(process.env.PORT ?? 0);
-try {
-  await app.listen({ port, host: '127.0.0.1' });
+void app.listen({ port, host: '127.0.0.1' }).then(() => {
   recordEvent('api', 'server_started', { port });
-} catch (error) {
+}).catch(error => {
   console.error(error);
   process.exitCode = 1;
-}
+});
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {
