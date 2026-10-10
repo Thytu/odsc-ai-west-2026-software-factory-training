@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "services": {
     "web": {
       "root": "apps/web",
@@ -11,20 +13,41 @@
       "root": "apps/api",
       "framework": "fastify",
       "entrypoint": "src/index.ts",
-      "rewrites": [{ "source": "/backend/:path(.*)?", "destination": "/:path" }]
+      "rewrites": [
+        {
+          "source": "/backend/:path(.*)?",
+          "destination": "/:path"
+        }
+      ]
     },
     "worker": {
       "root": "apps/worker",
-      "framework": null,
       "functions": {
         "api/consume.ts": {
-          "experimentalTriggers": [{ "type": "queue/v2beta", "topic": "eventdesk-reminders", "maxDeliveries": 5, "retryAfterSeconds": 5 }]
+          "experimentalTriggers": [
+            {
+              "type": "queue/v2beta",
+              "topic": "eventdesk-reminders",
+              "maxDeliveries": 5,
+              "retryAfterSeconds": 5
+            }
+          ]
         }
       }
     }
   },
   "rewrites": [
-    { "source": "/backend/:path*", "destination": { "service": "api" } },
-    { "source": "/:path*", "destination": { "service": "web" } }
+    {
+      "source": "/backend/:path*",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/:path*",
+      "destination": {
+        "service": "web"
+      }
+    }
   ]
 }
