@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { openDatabase } from '@eventdesk/data';
 
 const db = openDatabase({ migration: true });
-const client = await db.connect();
+const client = await db.connect().catch(async error => { await db.end(); throw error; });
 try {
   await client.query('SELECT pg_advisory_lock(1698516000)');
   await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, checksum TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())');
@@ -26,7 +26,10 @@ try {
     } catch (error) { await client.query('ROLLBACK'); throw error; }
   }
 } finally {
-  await client.query('SELECT pg_advisory_unlock(1698516000)');
-  client.release();
-  await db.end();
+  try {
+    await client.query('SELECT pg_advisory_unlock(1698516000)');
+  } finally {
+    client.release();
+    await db.end();
+  }
 }
