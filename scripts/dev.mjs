@@ -25,16 +25,18 @@ const environment = {
 let stopping = false;
 let ownsLock = false;
 let postgres;
+let startingDatabase;
 
 async function stop(code = 0) {
   if (stopping) return;
   stopping = true;
+  if (startingDatabase) postgres = await startingDatabase.catch(() => undefined);
   if (ownsLock) await rm(manifest, { force: true });
   const running = [...children];
   const closed = running.map(child => child.exitCode !== null || child.signalCode !== null || !child.pid ? Promise.resolve() : new Promise(done => child.once('close', done)));
   for (const child of running) {
     try {
-      if (process.platform === 'win32') child.kill('SIGTERM');
+      if (process.platform === 'win32') execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
       else process.kill(-child.pid, 'SIGTERM');
     } catch (error) {
       if (error.code !== 'ESRCH') console.error(error.message);
@@ -42,21 +44,23 @@ async function stop(code = 0) {
   }
   const deadline = setTimeout(() => {
     for (const child of running) {
+      if (child.exitCode !== null || child.signalCode !== null) continue;
       try {
-        if (process.platform === 'win32') child.kill('SIGKILL');
+        if (process.platform === 'win32') execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
         else process.kill(-child.pid, 'SIGKILL');
       } catch {}
     }
   }, 5000);
   await Promise.all(closed);
   clearTimeout(deadline);
-  if (postgres?.process?.exitCode === null) await postgres.stop();
+  if (postgres?.process?.exitCode === null && postgres.process.signalCode === null) await postgres.stop();
   if (ownsLock) await rm(lock, { force: true });
   process.exit(code);
 }
 
 function run(name, command, args, env = environment) {
-  const child = spawn(command, args, { cwd: root, env, stdio: 'inherit', detached: process.platform !== 'win32' });
+  if (stopping) throw new Error('This environment is stopping.');
+  const child = spawn(command, args, { cwd: root, env, stdio: 'inherit', detached: process.platform !== 'win32', shell: process.platform === 'win32' });
   children.add(child);
   child.once('error', error => {
     console.error(`${name}: ${error.message}`);
@@ -108,7 +112,10 @@ try {
     if (!ownsLock) throw new Error('Eventdesk is already running in this checkout. Use pnpm context to find its URL.');
   }
   await rm(manifest, { force: true });
-  postgres = await startDatabase(root, () => { if (!stopping) { console.error('Local Postgres stopped.'); void stop(1); } });
+  startingDatabase = startDatabase(root, () => { if (!stopping) { console.error('Local Postgres stopped.'); void stop(1); } });
+  postgres = await startingDatabase;
+  startingDatabase = undefined;
+  if (stopping) throw new Error('This environment is stopping.');
   const migrate = run('migrate', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['db:migrate']);
   await new Promise((done, reject) => {
     migrate.once('error', reject);
