@@ -5,6 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./log": "./src/log.ts"
+    "./log": "./src/log.ts",
+    "./paths": "./src/paths.ts"
+  },
+  "dependencies": {
+    "pg": "8.23.1",
+    "@vercel/functions": "3.9.11"
   }
 }

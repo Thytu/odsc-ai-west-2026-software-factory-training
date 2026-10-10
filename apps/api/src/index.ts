@@ -1,7 +1,10 @@
 import Fastify from 'fastify';
+import { randomUUID } from 'node:crypto';
+import { send } from '@vercel/queue';
 import {
   changeRoom,
   enqueueJob,
+  failJob,
   getAttendeeNotifications,
   getAttendeeSchedule,
   listActivity,
@@ -14,19 +17,19 @@ import { recordEvent } from '@eventdesk/data/log';
 
 type Database = ReturnType<typeof openDatabase>;
 
-function getSession(db: Database, id: string) {
-  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(id);
+async function getSession(db: Database, id: string) {
+  const session = (await db.query('SELECT * FROM sessions WHERE id = $1', [id])).rows[0];
   if (!session) return null;
-  const registrations = db.prepare(`
+  const registrations = (await db.query(`
     SELECT a.id, a.name, a.email, a.company, r.status
     FROM registrations r JOIN attendees a ON a.id = r.attendee_id
-    WHERE r.session_id = ? ORDER BY a.name
-  `).all(id);
+    WHERE r.session_id = $1 ORDER BY a.name
+  `, [id])).rows;
   return { ...session, registrations };
 }
 
 const db = openDatabase();
-const app = Fastify({ logger: false });
+const app = Fastify({ logger: false, genReqId: randomUUID });
 
 app.addHook('onRequest', async (request, reply) => {
   reply.header('x-request-id', request.id);
@@ -37,22 +40,25 @@ app.addHook('onResponse', async (request, reply) => {
   recordEvent('api', 'request_completed', { requestId: request.id, method: request.method, path: request.url, status: reply.statusCode });
 });
 
-app.get('/health', async () => ({ ok: true, service: 'eventdesk-api' }));
+app.get('/health', async () => {
+  await listSessions(db);
+  return { ok: true, service: 'eventdesk-api', version: process.env.DEPLOY_VERSION ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'local', environment: process.env.PORTLESS_URL ?? process.env.VERCEL_URL ?? 'local' };
+});
 app.get('/sessions', async () => listSessions(db));
 app.get<{ Params: { id: string } }>('/sessions/:id', async (request, reply) => {
-  const session = getSession(db, request.params.id);
+  const session = await getSession(db, request.params.id);
   if (!session) return reply.code(404).send({ error: 'Session not found' });
   return session;
 });
 app.get('/attendees', async () => listAttendees(db));
 app.get<{ Params: { id: string } }>('/attendees/:id/schedule', async (request, reply) => {
-  if (!listAttendees(db).some((attendee: any) => attendee.id === request.params.id)) {
+  if (!(await listAttendees(db)).some((attendee: any) => attendee.id === request.params.id)) {
     return reply.code(404).send({ error: 'Attendee not found' });
   }
   return getAttendeeSchedule(db, request.params.id);
 });
 app.get<{ Params: { id: string } }>('/attendees/:id/notifications', async (request, reply) => {
-  if (!listAttendees(db).some((attendee: any) => attendee.id === request.params.id)) {
+  if (!(await listAttendees(db)).some((attendee: any) => attendee.id === request.params.id)) {
     return reply.code(404).send({ error: 'Attendee not found' });
   }
   return getAttendeeNotifications(db, request.params.id);
@@ -63,7 +69,7 @@ app.post<{ Params: { id: string } }>('/sessions/:id/registrations', async (reque
   const body: any = request.body;
   const attendeeId = typeof body?.attendeeId === 'string' ? body.attendeeId : '';
   if (!attendeeId) return reply.code(400).send({ error: 'Choose an attendee' });
-  const result = registerAttendee(db, request.params.id, attendeeId);
+  const result = await registerAttendee(db, request.params.id, attendeeId);
   if ('error' in result) {
     return reply.code(result.error === 'full' ? 409 : 404).send({ error: result.error === 'full' ? 'Session is full' : 'Session or attendee not found' });
   }
@@ -75,16 +81,25 @@ app.patch<{ Params: { id: string } }>('/sessions/:id/room', async (request, repl
   const body: any = request.body;
   const room = typeof body?.room === 'string' ? body.room.trim() : '';
   if (!room || room.length > 80) return reply.code(400).send({ error: 'Room must be between 1 and 80 characters' });
-  const result = changeRoom(db, request.params.id, room, 'organizer', request.id);
+  const result = await changeRoom(db, request.params.id, room, 'organizer', request.id);
   if (!result) return reply.code(404).send({ error: 'Session not found' });
   recordEvent('api', 'room_updated', { requestId: request.id, sessionId: request.params.id, ...result });
   return result;
 });
 
 app.post<{ Params: { id: string } }>('/sessions/:id/reminders', async (request, reply) => {
-  const session = getSession(db, request.params.id);
+  const session = await getSession(db, request.params.id);
   if (!session) return reply.code(404).send({ error: 'Session not found' });
-  const jobId = enqueueJob(db, 'session_reminder', { sessionId: request.params.id, requestId: request.id });
+  const jobId = await enqueueJob(db, 'session_reminder', { sessionId: request.params.id, requestId: request.id });
+  if (process.env.VERCEL) {
+    try {
+      await send('eventdesk-reminders', { jobId }, { idempotencyKey: jobId, region: 'iad1' });
+    } catch (error) {
+      await failJob(db, jobId);
+      recordEvent('api', 'reminder_publish_failed', { requestId: request.id, jobId, error: error instanceof Error ? error.message : String(error) });
+      return reply.code(503).send({ error: 'The reminder service is unavailable. Please try again.' });
+    }
+  }
   recordEvent('api', 'reminder_queued', { requestId: request.id, jobId, sessionId: request.params.id });
   return reply.code(202).send({ jobId });
 });
@@ -94,8 +109,8 @@ app.setErrorHandler((error, request, reply) => {
   reply.code(500).send({ error: 'Unexpected server error' });
 });
 
-const port = Number(process.env.API_PORT ?? 4000);
-try {
+const port = Number(process.env.PORT ?? 0);
+if (!process.env.VERCEL) try {
   await app.listen({ port, host: '127.0.0.1' });
   recordEvent('api', 'server_started', { port });
 } catch (error) {
@@ -106,7 +121,9 @@ try {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, async () => {
     await app.close();
-    db.close();
+    await db.end();
     process.exit(0);
   });
 }
+
+export default app;

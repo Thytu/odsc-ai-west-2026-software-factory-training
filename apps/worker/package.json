@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@eventdesk/data": "workspace:*"
+    "@eventdesk/data": "workspace:*",
+    "@vercel/queue": "0.8.0"
   }
 }

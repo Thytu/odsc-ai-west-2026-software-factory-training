@@ -15,7 +15,7 @@ const sessions = [
 ] as const;
 
 for (const session of sessions) {
-  db.prepare('INSERT OR IGNORE INTO sessions (id, title, track, summary, room, starts_at, ends_at, capacity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(...session);
+  await db.query('INSERT INTO sessions (id, title, track, summary, room, starts_at, ends_at, capacity) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING', [...session]);
 }
 
 const attendees = [
@@ -25,7 +25,7 @@ const attendees = [
   ['attendee-104', 'Leo Martin', 'leo@example.test', 'Atlas Works'],
 ] as const;
 for (const attendee of attendees) {
-  db.prepare('INSERT OR IGNORE INTO attendees (id, name, email, company) VALUES (?, ?, ?, ?)').run(...attendee);
+  await db.query('INSERT INTO attendees (id, name, email, company) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING', [...attendee]);
 }
 
 const registrations = [
@@ -34,10 +34,10 @@ const registrations = [
   ['session-103', 'attendee-101'], ['session-103', 'attendee-104'],
 ];
 for (const [sessionId, attendeeId] of registrations) {
-  db.prepare('INSERT OR IGNORE INTO registrations (id, session_id, attendee_id, status, created_at) VALUES (?, ?, ?, ?, ?)')
-    .run(`${sessionId}-${attendeeId}`, sessionId, attendeeId, 'registered', new Date().toISOString());
+  await db.query('INSERT INTO registrations (id, session_id, attendee_id, status, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING',
+    [`${sessionId}-${attendeeId}`, sessionId, attendeeId, 'registered', new Date().toISOString()]);
 }
 
-const existingJob = db.prepare("SELECT id FROM jobs WHERE kind = 'session_reminder' LIMIT 1").get();
-if (!existingJob) enqueueJob(db, 'session_reminder', { sessionId: 'session-101' });
-db.close();
+const existingJob = (await db.query("SELECT id FROM jobs WHERE kind = 'session_reminder' LIMIT 1")).rows[0];
+if (!existingJob) await enqueueJob(db, 'session_reminder', { sessionId: 'session-101' });
+await db.end();

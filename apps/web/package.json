@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack -p 3000",
+    "dev": "next dev --webpack --hostname 127.0.0.1",
     "build": "next build --webpack",
-    "start": "next start -p 3000"
+    "start": "next start --hostname 127.0.0.1"
   },
   "dependencies": {
     "@eventdesk/data": "workspace:*",

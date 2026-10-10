@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@eventdesk/data": "workspace:*",
-    "fastify": "^5.12.5"
+    "fastify": "^5.12.5",
+    "@vercel/queue": "0.8.0"
   }
 }
