@@ -127,7 +127,7 @@ try {
     seed.once('close', code => code === 0 ? done() : reject(new Error('Database setup failed.')));
   });
   run('API', process.platform === 'win32' ? 'portless.cmd' : 'portless', [apiName, 'tsx', 'watch', 'apps/api/src/index.ts']);
-  await waitFor(`${apiUrl.origin}/health`);
+  await waitFor(`${apiUrl.origin}/backend/health`);
   run('worker', 'tsx', ['watch', 'apps/worker/src/index.ts']);
   run('web', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--dir', 'apps/web', 'dev']);
   await waitFor(`${appUrl}/backend/sessions`);

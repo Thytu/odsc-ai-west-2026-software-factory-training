@@ -40,32 +40,32 @@ app.addHook('onResponse', async (request, reply) => {
   recordEvent('api', 'request_completed', { requestId: request.id, method: request.method, path: request.url, status: reply.statusCode });
 });
 
-app.get('/health', async () => {
+app.get('/backend/health', async () => {
   await listSessions(db);
   return { ok: true, service: 'eventdesk-api', version: process.env.DEPLOY_VERSION || process.env.VERCEL_GIT_COMMIT_SHA || 'local', environment: process.env.PORTLESS_URL ?? process.env.VERCEL_URL ?? 'local' };
 });
-app.get('/sessions', async () => listSessions(db));
-app.get<{ Params: { id: string } }>('/sessions/:id', async (request, reply) => {
+app.get('/backend/sessions', async () => listSessions(db));
+app.get<{ Params: { id: string } }>('/backend/sessions/:id', async (request, reply) => {
   const session = await getSession(db, request.params.id);
   if (!session) return reply.code(404).send({ error: 'Session not found' });
   return session;
 });
-app.get('/attendees', async () => listAttendees(db));
-app.get<{ Params: { id: string } }>('/attendees/:id/schedule', async (request, reply) => {
+app.get('/backend/attendees', async () => listAttendees(db));
+app.get<{ Params: { id: string } }>('/backend/attendees/:id/schedule', async (request, reply) => {
   if (!(await listAttendees(db)).some((attendee: any) => attendee.id === request.params.id)) {
     return reply.code(404).send({ error: 'Attendee not found' });
   }
   return getAttendeeSchedule(db, request.params.id);
 });
-app.get<{ Params: { id: string } }>('/attendees/:id/notifications', async (request, reply) => {
+app.get<{ Params: { id: string } }>('/backend/attendees/:id/notifications', async (request, reply) => {
   if (!(await listAttendees(db)).some((attendee: any) => attendee.id === request.params.id)) {
     return reply.code(404).send({ error: 'Attendee not found' });
   }
   return getAttendeeNotifications(db, request.params.id);
 });
-app.get('/activity', async () => listActivity(db));
+app.get('/backend/activity', async () => listActivity(db));
 
-app.post<{ Params: { id: string } }>('/sessions/:id/registrations', async (request, reply) => {
+app.post<{ Params: { id: string } }>('/backend/sessions/:id/registrations', async (request, reply) => {
   const body: any = request.body;
   const attendeeId = typeof body?.attendeeId === 'string' ? body.attendeeId : '';
   if (!attendeeId) return reply.code(400).send({ error: 'Choose an attendee' });
@@ -77,7 +77,7 @@ app.post<{ Params: { id: string } }>('/sessions/:id/registrations', async (reque
   return reply.code(result.created ? 201 : 200).send(result);
 });
 
-app.patch<{ Params: { id: string } }>('/sessions/:id/room', async (request, reply) => {
+app.patch<{ Params: { id: string } }>('/backend/sessions/:id/room', async (request, reply) => {
   const body: any = request.body;
   const room = typeof body?.room === 'string' ? body.room.trim() : '';
   if (!room || room.length > 80) return reply.code(400).send({ error: 'Room must be between 1 and 80 characters' });
@@ -87,7 +87,7 @@ app.patch<{ Params: { id: string } }>('/sessions/:id/room', async (request, repl
   return result;
 });
 
-app.post<{ Params: { id: string } }>('/sessions/:id/reminders', async (request, reply) => {
+app.post<{ Params: { id: string } }>('/backend/sessions/:id/reminders', async (request, reply) => {
   const session = await getSession(db, request.params.id);
   if (!session) return reply.code(404).send({ error: 'Session not found' });
   const jobId = await enqueueJob(db, 'session_reminder', { sessionId: request.params.id, requestId: request.id });

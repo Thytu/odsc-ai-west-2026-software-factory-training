@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ['eventdesk.localhost', '*.eventdesk.localhost'],
   async rewrites() {
     const origin = process.env.EVENTDESK_API_ORIGIN;
-    return origin ? [{ source: '/backend/:path*', destination: `${origin}/:path*` }] : [];
+    return origin ? [{ source: '/backend/:path*', destination: `${origin}/backend/:path*` }] : [];
   },
 };
 

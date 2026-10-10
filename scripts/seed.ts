@@ -52,4 +52,3 @@ try {
   db.release();
   await pool.end();
 }
-

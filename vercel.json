@@ -12,13 +12,7 @@
     "api": {
       "root": "apps/api",
       "framework": "fastify",
-      "entrypoint": "src/index.ts",
-      "rewrites": [
-        {
-          "source": "/backend/:path(.*)?",
-          "destination": "/:path"
-        }
-      ]
+      "entrypoint": "src/index.ts"
     },
     "worker": {
       "root": "apps/worker",
