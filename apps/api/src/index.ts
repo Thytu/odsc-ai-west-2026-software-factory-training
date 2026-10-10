@@ -110,7 +110,7 @@ app.setErrorHandler((error, request, reply) => {
 });
 
 const port = Number(process.env.PORT ?? 0);
-if (!process.env.VERCEL) try {
+try {
   await app.listen({ port, host: '127.0.0.1' });
   recordEvent('api', 'server_started', { port });
 } catch (error) {
