@@ -10,7 +10,7 @@ async function api(path, method = 'GET') {
   const response = await fetch(url, { method, headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
   if (response.status === 404 && method === 'DELETE') return;
   if (!response.ok) throw new Error(`Vercel ${method} request failed (${response.status}).`);
-  return response.json();
+  return response.status === 204 ? undefined : response.json();
 }
 
 const deployments = [];
@@ -26,6 +26,10 @@ do {
 } while (until);
 for (const id of deployments) {
   await api(`/v13/deployments/${encodeURIComponent(id)}`, 'DELETE');
+  const url = new URL(`/v13/deployments/${encodeURIComponent(id)}`, 'https://api.vercel.com');
+  url.searchParams.set('teamId', team);
+  const removed = await fetch(url, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000) });
+  if (removed.status !== 404) throw new Error(`Preview deletion could not be verified (${removed.status}).`);
   console.log(`Removed preview deployment ${id}.`);
 }
 console.log(`Removed ${deployments.length} deployment(s) for ${branch}. Neon removes its branch after the final deployment is deleted.`);
