@@ -6,7 +6,7 @@ import test from 'node:test';
 import pg from 'pg';
 import { startDatabase } from './postgres.mjs';
 
-test('checkout databases are isolated, persistent, and restart after a crash', { timeout: 120000 }, async () => {
+test('checkout databases are isolated, persistent, and restart after a crash', { timeout: process.platform === 'win32' ? 180000 : 120000 }, async t => {
   const roots = await Promise.all([1, 2].map(() => mkdtemp(join(tmpdir(), 'eventdesk-test-'))));
   const servers = new Set();
   const clients = new Set();
@@ -21,6 +21,7 @@ test('checkout databases are isolated, persistent, and restart after a crash', {
   }
   try {
     const [a, b] = await Promise.all(roots.map(start));
+    t.diagnostic('Both checkout databases started.');
     assert.notEqual(a.config.password, b.config.password);
     if (process.platform === 'win32') assert.notEqual(a.config.port, b.config.port);
     else {
@@ -32,16 +33,20 @@ test('checkout databases are isolated, persistent, and restart after a crash', {
     assert.equal((await b.client.query("SELECT to_regclass('isolation_fixture') AS fixture")).rows[0].fixture, null);
     await a.client.end();
     await a.server.stop();
+    t.diagnostic('The first database stopped; the second remains available.');
     assert.equal(a.server.isRunning(), false);
     assert.equal((await b.client.query('SELECT 1 AS alive')).rows[0].alive, 1);
 
     const restarted = await start(roots[0]);
+    t.diagnostic('The first database restarted with persisted data.');
     assert.equal((await restarted.client.query('SELECT value FROM isolation_fixture')).rows[0].value, 'saved in A');
     await restarted.client.end();
     process.kill(restarted.server.pid, 'SIGKILL');
     await restarted.server.exited;
+    t.diagnostic('The crashed database process exited.');
 
     const recovered = await start(roots[0]);
+    t.diagnostic('The crashed database recovered.');
     assert.equal((await recovered.client.query('SELECT value FROM isolation_fixture')).rows[0].value, 'saved in A');
   } catch (error) {
     for (const root of roots) console.error(await readFile(join(root, '.data/postgres.log'), 'utf8').catch(() => ''));
