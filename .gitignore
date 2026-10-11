@@ -6,3 +6,4 @@ node_modules/
 *.tsbuildinfo
 coverage/
 .vercel
+**/next-env.d.ts

@@ -3,7 +3,6 @@ packages:
   - packages/*
 allowBuilds:
   esbuild: true
-  embedded-postgres: true
   "@embedded-postgres/darwin-arm64": true
   "@embedded-postgres/darwin-x64": true
   "@embedded-postgres/linux-arm": true

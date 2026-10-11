@@ -23,8 +23,18 @@
     "portless": "0.15.7",
     "tsx": "^4.23.15",
     "typescript": "^5.9.0",
-    "embedded-postgres": "17.10.0-beta.17",
-    "@types/pg": "8.20.0"
+    "@types/pg": "8.20.0",
+    "pg": "8.23.1"
   },
-  "type": "module"
+  "type": "module",
+  "optionalDependencies": {
+    "@embedded-postgres/darwin-arm64": "17.10.0-beta.17",
+    "@embedded-postgres/darwin-x64": "17.10.0-beta.17",
+    "@embedded-postgres/linux-arm": "17.10.0-beta.17",
+    "@embedded-postgres/linux-arm64": "17.10.0-beta.17",
+    "@embedded-postgres/linux-ia32": "17.10.0-beta.17",
+    "@embedded-postgres/linux-ppc64": "17.10.0-beta.17",
+    "@embedded-postgres/linux-x64": "17.10.0-beta.17",
+    "@embedded-postgres/windows-x64": "17.10.0-beta.17"
+  }
 }

@@ -1,12 +1,28 @@
-import EmbeddedPostgres from 'embedded-postgres';
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
+import { createWriteStream, existsSync } from 'node:fs';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createHash, randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createServer } from 'node:net';
+import pg from 'pg';
 
-export async function startDatabase(root, onExit) {
+const execute = promisify(execFile);
+
+async function availablePort() {
+  const server = createServer();
+  await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
+  const port = server.address().port;
+  await new Promise(done => server.close(done));
+  return port;
+}
+
+export async function startDatabase(root, onExit = () => {}) {
+  const platform = process.platform === 'win32' ? 'windows' : process.platform;
+  let binaries;
+  try { binaries = await import(`@embedded-postgres/${platform}-${process.arch}`); }
+  catch { throw new Error('Postgres binaries are unavailable for this platform. Run pnpm install with optional dependencies enabled.'); }
   const state = resolve(root, '.data');
   const directory = resolve(state, 'postgres');
   const credentials = resolve(state, 'database.json');
@@ -20,46 +36,68 @@ export async function startDatabase(root, onExit) {
     if (existsSync(join(directory, 'PG_VERSION'))) throw new Error('Local Postgres credentials are missing from .data/database.json.');
     config = { user: 'eventdesk', database: 'eventdesk', password: randomBytes(32).toString('hex') };
   }
-  let postgres;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    let port;
-    if (process.platform === 'win32') {
-      const server = createServer();
-      await new Promise((done, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', done); });
-      port = server.address().port;
-      await new Promise(done => server.close(done));
-    }
-    config = { ...config, host: process.platform === 'win32' ? '127.0.0.1' : socket, ...(port ? { port } : {}) };
-    await writeFile(credentials, `${JSON.stringify(config)}\n`, { mode: 0o600 });
-    let startupLog = '';
-    postgres = new EmbeddedPostgres({
-      databaseDir: directory,
-      user: config.user,
-      password: config.password,
-      authMethod: 'scram-sha-256',
-      persistent: true,
-      ...(port ? { port } : {}),
-      postgresFlags: process.platform === 'win32'
-        ? ['-c', 'listen_addresses=127.0.0.1']
-        : ['-c', 'listen_addresses=', '-c', `unix_socket_directories=${socket}`, '-c', 'unix_socket_permissions=0700'],
-      onLog: message => { startupLog += message; void appendFile(resolve(state, 'postgres.log'), message).catch(() => {}); },
-      onError: message => { startupLog += String(message); void appendFile(resolve(state, 'postgres.log'), `${message}\n`).catch(() => {}); },
-    });
+  await writeFile(credentials, `${JSON.stringify(config)}\n`, { mode: 0o600 });
+  if (!existsSync(join(directory, 'PG_VERSION'))) {
+    await rm(directory, { recursive: true, force: true });
+    const passwordFile = resolve(state, '.postgres-password');
+    await writeFile(passwordFile, `${config.password}\n`, { mode: 0o600 });
     try {
-      if (!existsSync(join(directory, 'PG_VERSION'))) await postgres.initialise();
-      await postgres.start();
-      break;
+      await execute(binaries.initdb, ['-D', directory, '--username', config.user, '--pwfile', passwordFile, '--auth=scram-sha-256', '--encoding=UTF8', '--locale=C'], { timeout: 60000 });
+    } finally { await rm(passwordFile, { force: true }); }
+  }
+  if (existsSync(join(directory, 'postmaster.pid'))) {
+    let running = false;
+    try { await execute(binaries.pg_ctl, ['-D', directory, 'status']); running = true; }
+    catch (error) { if (![3, 4].includes(error.code)) throw error; }
+    if (running) await execute(binaries.pg_ctl, ['-D', directory, '-m', 'fast', '-w', '-t', '15', 'stop'], { timeout: 20000 });
+  }
+  for (let attempt = 0; attempt < 4; attempt++) {
+    config = { ...config, host: process.platform === 'win32' ? '127.0.0.1' : socket, ...(process.platform === 'win32' ? { port: await availablePort() } : {}) };
+    await writeFile(credentials, `${JSON.stringify(config)}\n`, { mode: 0o600 });
+    const flags = process.platform === 'win32'
+      ? ['-p', String(config.port), '-c', 'listen_addresses=127.0.0.1']
+      : ['-c', 'listen_addresses=', '-c', `unix_socket_directories=${socket}`, '-c', 'unix_socket_permissions=0700'];
+    const child = spawn(binaries.postgres, ['-D', directory, ...flags], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+    const log = createWriteStream(resolve(state, 'postgres.log'), { flags: 'a', mode: 0o600 });
+    let startupLog = '';
+    let spawnError;
+    child.stdout.pipe(log, { end: false });
+    child.stderr.pipe(log, { end: false });
+    child.stderr.on('data', chunk => { startupLog += chunk; });
+    child.once('error', error => { spawnError = error; });
+    child.once('close', () => log.end());
+    let stopping;
+    const stop = () => stopping ??= (async () => {
+      if (child.exitCode !== null || child.signalCode !== null || !child.pid) return;
+      const exited = new Promise(done => child.once('exit', done));
+      try {
+        await execute(binaries.pg_ctl, ['-D', directory, '-m', 'fast', '-w', '-t', '15', 'stop'], { timeout: 20000 });
+      } catch (error) {
+        if (child.exitCode === null && child.signalCode === null) throw error;
+      }
+      await exited;
+    })();
+    try {
+      const deadline = Date.now() + 20000;
+      while (true) {
+        if (spawnError) throw spawnError;
+        if (child.exitCode !== null || child.signalCode !== null) throw new Error('Postgres exited during startup.');
+        const client = new pg.Client({ ...config, database: 'postgres', connectionTimeoutMillis: 1000 });
+        try {
+          await client.connect();
+          if (!(await client.query("SELECT 1 FROM pg_database WHERE datname = 'eventdesk'")).rowCount) await client.query('CREATE DATABASE eventdesk');
+          break;
+        } catch (error) {
+          if (Date.now() >= deadline) throw error;
+          await new Promise(done => setTimeout(done, 150));
+        } finally { await client.end(); }
+      }
+      child.once('exit', onExit);
+      return { process: child, stop };
     } catch (error) {
+      await stop();
       if (attempt < 3 && process.platform === 'win32' && /address already in use/i.test(startupLog)) continue;
-      throw new Error(`Local Postgres could not start. Details: .data/postgres.log. ${error instanceof Error ? error.message : ''}`);
+      throw new Error(`Local Postgres could not start. Details: .data/postgres.log. ${error.message}`);
     }
   }
-  postgres.process?.once('exit', onExit);
-  const client = postgres.getPgClient('postgres', config.host);
-  try {
-    await client.connect();
-    if (!(await client.query("SELECT 1 FROM pg_database WHERE datname = 'eventdesk'")).rowCount) await client.query('CREATE DATABASE eventdesk');
-  } catch (error) { await postgres.stop(); throw error; }
-  finally { await client.end(); }
-  return postgres;
 }

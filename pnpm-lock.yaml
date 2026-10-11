@@ -176,9 +176,9 @@ importers:
       '@types/pg':
         specifier: 8.20.0
         version: 8.20.0
-      embedded-postgres:
-        specifier: 17.10.0-beta.17
-        version: 17.10.0-beta.17
+      pg:
+        specifier: 8.23.1
+        version: 8.23.1
       portless:
         specifier: 0.15.7
         version: 0.15.7
@@ -188,6 +188,31 @@ importers:
       typescript:
         specifier: ^5.9.0
         version: 5.9.3
+    optionalDependencies:
+      '@embedded-postgres/darwin-arm64':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/darwin-x64':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/linux-arm':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/linux-arm64':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/linux-ia32':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/linux-ppc64':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/linux-x64':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
+      '@embedded-postgres/windows-x64':
+        specifier: 17.10.0-beta.17
+        version: 17.10.0-beta.17
 
   apps/api:
     dependencies:
@@ -876,10 +901,6 @@ packages:
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
-  async-exit-hook@2.0.1:
-    resolution: {integrity: sha512-NW2cX8m1Q7KPA7a5M2ULQeZ2wR5qI5PAbw5L0UOMxdioVk9PMZ0h1TmyZEkPYrCvYjDlFICusOu1dlEKAAeXBw==}
-    engines: {node: '>=0.12.0'}
-
   atomic-sleep@1.0.0:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
@@ -924,10 +945,6 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
-
-  embedded-postgres@17.10.0-beta.17:
-    resolution: {integrity: sha512-s9ITJA41OTIQmn91RLqQ5X2MVP2BCZ8pb4tQX3MY8VOd8xNCzzlgfHGcXuitDzK800FhbG/3YufFk21KTTvpzA==}
-    engines: {node: '>=16'}
 
   enhanced-resolve@5.26.0:
     resolution: {integrity: sha512-9vhedylFonb2YGogzUKX6+Ja72gOJbN1QHAqdrvqLwhdl/QWbKopzoUC9EbQNVsAns/bx/4uyqalrQAoy1IByw==}
@@ -1813,8 +1830,6 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
-  async-exit-hook@2.0.1: {}
-
   atomic-sleep@1.0.0: {}
 
   avvio@9.3.0:
@@ -1847,22 +1862,6 @@ snapshots:
   dequal@2.0.3: {}
 
   detect-libc@2.1.2: {}
-
-  embedded-postgres@17.10.0-beta.17:
-    dependencies:
-      async-exit-hook: 2.0.1
-      pg: 8.23.1
-    optionalDependencies:
-      '@embedded-postgres/darwin-arm64': 17.10.0-beta.17
-      '@embedded-postgres/darwin-x64': 17.10.0-beta.17
-      '@embedded-postgres/linux-arm': 17.10.0-beta.17
-      '@embedded-postgres/linux-arm64': 17.10.0-beta.17
-      '@embedded-postgres/linux-ia32': 17.10.0-beta.17
-      '@embedded-postgres/linux-ppc64': 17.10.0-beta.17
-      '@embedded-postgres/linux-x64': 17.10.0-beta.17
-      '@embedded-postgres/windows-x64': 17.10.0-beta.17
-    transitivePeerDependencies:
-      - pg-native
 
   enhanced-resolve@5.26.0:
     dependencies:
