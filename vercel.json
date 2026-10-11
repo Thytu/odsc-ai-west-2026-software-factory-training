@@ -40,7 +40,7 @@
       }
     },
     {
-      "source": "/:path*",
+      "source": "/(.*)",
       "destination": {
         "service": "web"
       }
