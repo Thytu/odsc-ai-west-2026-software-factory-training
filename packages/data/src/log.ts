@@ -9,11 +9,13 @@ export function recordEvent(component: string, event: string, fields: Record<str
     at: new Date().toISOString(),
     component,
     event,
-    deploy: process.env.DEPLOY_VERSION ?? 'local',
+    deploy: process.env.DEPLOY_VERSION ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
     ...fields,
   };
   const line = JSON.stringify(entry);
-  mkdirSync(dirname(logPath), { recursive: true });
-  appendFileSync(logPath, `${line}\n`);
+  if (!process.env.VERCEL) {
+    mkdirSync(dirname(logPath), { recursive: true });
+    appendFileSync(logPath, `${line}\n`);
+  }
   process.stdout.write(`${line}\n`);
 }

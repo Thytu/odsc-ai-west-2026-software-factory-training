@@ -4,5 +4,5 @@
     "rootDir": "../..",
     "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "../../packages/data/src/**/*.ts"]
+  "include": ["src/**/*.ts", "api/**/*.ts", "../../packages/data/src/**/*.ts"]
 }

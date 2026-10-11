@@ -1,0 +1,47 @@
+name: Clean up PR preview
+
+on:
+  pull_request_target:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Closed pull request number
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: preview-cleanup-${{ github.event.pull_request.number || inputs.pull_request }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24
+      - name: Resolve closed PR
+        id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pull_request }}
+        run: |
+          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq 'select(.state == "closed" and .head.repo.full_name == .base.repo.full_name) | "branch=\(.head.ref)"' >> "$GITHUB_OUTPUT"
+      - name: Remove branch deployments
+        if: steps.pull-request.outputs.branch != ''
+        env:
+          VERCEL_PREVIEW_CLEANUP_TOKEN: ${{ secrets.VERCEL_PREVIEW_CLEANUP_TOKEN }}
+          VERCEL_PROJECT_ID: prj_qvX2juAGqBrPpkzY02P8rHik7NU8
+          VERCEL_TEAM_ID: team_x60ZxgT2pWazOQQrFh54mUDP
+          PREVIEW_BRANCH: ${{ steps.pull-request.outputs.branch }}
+        run: node scripts/cleanup-preview.mjs

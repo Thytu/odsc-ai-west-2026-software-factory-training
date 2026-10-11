@@ -1,0 +1,49 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": [
+    "iad1"
+  ],
+  "services": {
+    "web": {
+      "root": "apps/web",
+      "framework": "nextjs",
+      "buildCommand": "cd ../.. && pnpm db:migrate && pnpm seed && pnpm exec tsx scripts/prepare-preview.ts && pnpm --dir apps/web build"
+    },
+    "api": {
+      "root": "apps/api",
+      "framework": "fastify",
+      "entrypoint": "src/index.ts"
+    },
+    "worker": {
+      "root": "apps/worker",
+      "functions": {
+        "api/consume.ts": {
+          "experimentalTriggers": [
+            {
+              "type": "queue/v2beta",
+              "topic": "eventdesk-reminders",
+              "maxDeliveries": 5,
+              "retryAfterSeconds": 5
+            }
+          ]
+        }
+      },
+      "runtime": "node",
+      "entrypoint": "api/consume.ts"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/backend/:path*",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
+  ]
+}

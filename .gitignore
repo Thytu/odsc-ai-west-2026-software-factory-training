@@ -5,3 +5,5 @@ node_modules/
 !.env.example
 *.tsbuildinfo
 coverage/
+.vercel
+**/next-env.d.ts

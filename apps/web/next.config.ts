@@ -3,8 +3,10 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   agentRules: false,
   transpilePackages: ['@eventdesk/data'],
+  allowedDevOrigins: ['eventdesk.localhost', '*.eventdesk.localhost'],
   async rewrites() {
-    return [{ source: '/backend/:path*', destination: `${process.env.EVENTDESK_API_ORIGIN ?? 'http://127.0.0.1:4000'}/:path*` }];
+    const origin = process.env.EVENTDESK_API_ORIGIN;
+    return origin ? [{ source: '/backend/:path*', destination: `${origin}/backend/:path*` }] : [];
   },
 };
 
