@@ -20,7 +20,7 @@ test('named HTTPS worktrees run isolated frontend, API, worker, and database sta
   const checkouts = branches.map(branch => join(scratch, branch));
   const children = new Set();
   const env = { ...process.env };
-  env.npm_config_store_dir = execFileSync(pnpm, ['store', 'path'], { cwd: root, encoding: 'utf8', shell }).trim();
+  env.PNPM_CONFIG_STORE_DIR = execFileSync(pnpm, ['store', 'path'], { cwd: root, encoding: 'utf8', shell }).trim();
   let proxy;
   let ca;
   const logs = new Map();
