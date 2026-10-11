@@ -138,7 +138,8 @@ test('named HTTPS worktrees run isolated frontend, API, worker, and database sta
   } finally {
     for (const child of children) if (child !== proxy) await stop(child);
     await stop(proxy);
-    for (const checkout of checkouts) if (existsSync(checkout)) execFileSync('git', ['worktree', 'remove', '--force', checkout], { cwd: root, stdio: 'ignore' });
+    for (const checkout of checkouts) await rm(checkout, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+    execFileSync('git', ['worktree', 'prune'], { cwd: root, stdio: 'ignore' });
     for (const branch of branches) {
       try { execFileSync('git', ['branch', '-D', branch], { cwd: root, stdio: 'ignore' }); } catch {}
     }
