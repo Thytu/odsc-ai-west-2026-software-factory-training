@@ -53,7 +53,7 @@ async function stop(code = 0) {
   }, 5000);
   await Promise.all(closed);
   clearTimeout(deadline);
-  if (postgres?.process?.exitCode === null && postgres.process.signalCode === null) await postgres.stop();
+  await postgres?.stop();
   if (ownsLock) await rm(lock, { force: true });
   process.exit(code);
 }

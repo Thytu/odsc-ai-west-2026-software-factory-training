@@ -18,6 +18,49 @@ async function availablePort() {
   return port;
 }
 
+async function launchDatabase(binaries, directory, flags, logPath) {
+  let pid;
+  let isRunning;
+  let exited;
+  let spawnError;
+  if (process.platform === 'win32') {
+    await writeFile(logPath, '', { flag: 'a', mode: 0o600 });
+    await execute(binaries.pg_ctl, ['-D', directory, '-l', logPath, '-o', flags.join(' '), '-w', '-t', '20', 'start'], { timeout: 30000 });
+    pid = Number((await readFile(join(directory, 'postmaster.pid'), 'utf8')).split('\n')[0]);
+    let alive = true;
+    isRunning = () => alive;
+    exited = new Promise(done => {
+      const monitor = setInterval(() => {
+        try { process.kill(pid, 0); }
+        catch (error) {
+          if (error.code !== 'ESRCH') return;
+          alive = false;
+          clearInterval(monitor);
+          done();
+        }
+      }, 100);
+    });
+  } else {
+    const child = spawn(binaries.postgres, ['-D', directory, ...flags], { stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    pid = child.pid;
+    const log = createWriteStream(logPath, { flags: 'a', mode: 0o600 });
+    child.stdout.pipe(log, { end: false });
+    child.stderr.pipe(log, { end: false });
+    child.once('error', error => { spawnError = error; });
+    exited = new Promise(done => child.once('close', () => { log.end(); done(); }));
+    isRunning = () => child.exitCode === null && child.signalCode === null && !spawnError;
+  }
+  let stopping;
+  const stop = () => stopping ??= (async () => {
+    if (!isRunning() || !pid) return exited;
+    try {
+      await execute(binaries.pg_ctl, ['-D', directory, '-m', 'fast', '-w', '-t', '15', 'stop'], { timeout: 20000 });
+    } catch (error) { if (isRunning()) throw error; }
+    await exited;
+  })();
+  return { pid, exited, isRunning, stop, error: () => spawnError };
+}
+
 export async function startDatabase(root, onExit = () => {}) {
   const platform = process.platform === 'win32' ? 'windows' : process.platform;
   let binaries;
@@ -57,31 +100,14 @@ export async function startDatabase(root, onExit = () => {}) {
     const flags = process.platform === 'win32'
       ? ['-p', String(config.port), '-c', 'listen_addresses=127.0.0.1']
       : ['-c', 'listen_addresses=', '-c', `unix_socket_directories=${socket}`, '-c', 'unix_socket_permissions=0700'];
-    const child = spawn(binaries.postgres, ['-D', directory, ...flags], { stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
-    const log = createWriteStream(resolve(state, 'postgres.log'), { flags: 'a', mode: 0o600 });
-    let startupLog = '';
-    let spawnError;
-    child.stdout.pipe(log, { end: false });
-    child.stderr.pipe(log, { end: false });
-    child.stderr.on('data', chunk => { startupLog += chunk; });
-    child.once('error', error => { spawnError = error; });
-    child.once('close', () => log.end());
-    let stopping;
-    const stop = () => stopping ??= (async () => {
-      if (child.exitCode !== null || child.signalCode !== null || !child.pid) return;
-      const exited = new Promise(done => child.once('exit', done));
-      try {
-        await execute(binaries.pg_ctl, ['-D', directory, '-m', 'fast', '-w', '-t', '15', 'stop'], { timeout: 20000 });
-      } catch (error) {
-        if (child.exitCode === null && child.signalCode === null) throw error;
-      }
-      await exited;
-    })();
+    const logPath = resolve(state, 'postgres.log');
+    let server;
     try {
+      server = await launchDatabase(binaries, directory, flags, logPath);
       const deadline = Date.now() + 20000;
       while (true) {
-        if (spawnError) throw spawnError;
-        if (child.exitCode !== null || child.signalCode !== null) throw new Error('Postgres exited during startup.');
+        if (server.error()) throw server.error();
+        if (!server.isRunning()) throw new Error('Postgres exited during startup.');
         const client = new pg.Client({ ...config, database: 'postgres', connectionTimeoutMillis: 1000 });
         try {
           await client.connect();
@@ -92,10 +118,11 @@ export async function startDatabase(root, onExit = () => {}) {
           await new Promise(done => setTimeout(done, 150));
         } finally { await client.end(); }
       }
-      child.once('exit', onExit);
-      return { process: child, stop };
+      void server.exited.then(onExit);
+      return server;
     } catch (error) {
-      await stop();
+      await server?.stop();
+      const startupLog = await readFile(logPath, 'utf8').catch(() => '');
       if (attempt < 3 && process.platform === 'win32' && /address already in use/i.test(startupLog)) continue;
       throw new Error(`Local Postgres could not start. Details: .data/postgres.log. ${error.message}`);
     }

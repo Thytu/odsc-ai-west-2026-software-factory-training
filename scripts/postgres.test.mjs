@@ -32,15 +32,14 @@ test('checkout databases are isolated, persistent, and restart after a crash', {
     assert.equal((await b.client.query("SELECT to_regclass('isolation_fixture') AS fixture")).rows[0].fixture, null);
     await a.client.end();
     await a.server.stop();
-    assert.notEqual(a.server.process.exitCode ?? a.server.process.signalCode, null);
+    assert.equal(a.server.isRunning(), false);
     assert.equal((await b.client.query('SELECT 1 AS alive')).rows[0].alive, 1);
 
     const restarted = await start(roots[0]);
     assert.equal((await restarted.client.query('SELECT value FROM isolation_fixture')).rows[0].value, 'saved in A');
     await restarted.client.end();
-    const exited = new Promise(done => restarted.server.process.once('exit', done));
-    restarted.server.process.kill('SIGKILL');
-    await exited;
+    process.kill(restarted.server.pid, 'SIGKILL');
+    await restarted.server.exited;
 
     const recovered = await start(roots[0]);
     assert.equal((await recovered.client.query('SELECT value FROM isolation_fixture')).rows[0].value, 'saved in A');
