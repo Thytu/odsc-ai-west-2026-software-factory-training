@@ -44,6 +44,9 @@ test('checkout databases are isolated, persistent, and restart after a crash', {
 
     const recovered = await start(roots[0]);
     assert.equal((await recovered.client.query('SELECT value FROM isolation_fixture')).rows[0].value, 'saved in A');
+  } catch (error) {
+    for (const root of roots) console.error(await readFile(join(root, '.data/postgres.log'), 'utf8').catch(() => ''));
+    throw error;
   } finally {
     await Promise.all([...clients].map(client => client.end().catch(() => {})));
     await Promise.all([...servers].map(server => server.stop()));
