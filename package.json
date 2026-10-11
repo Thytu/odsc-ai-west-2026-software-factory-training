@@ -10,7 +10,7 @@
     "setup": "portless service install",
     "context": "node scripts/environment.mjs",
     "seed": "tsx scripts/seed.ts",
-    "reset": "tsx scripts/reset.ts",
+    "reset": "tsx scripts/reset.mjs",
     "check": "tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/worker/tsconfig.json && tsc --noEmit -p tsconfig.scripts.json && pnpm --dir apps/web exec tsc --noEmit",
     "build": "pnpm --dir apps/web build",
     "db:migrate": "tsx scripts/migrate.ts"
