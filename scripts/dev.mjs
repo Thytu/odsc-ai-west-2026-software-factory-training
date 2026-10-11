@@ -8,6 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const state = resolve(root, '.data');
 const lock = resolve(state, 'dev.lock');
 const manifest = resolve(state, 'runtime.json');
+const stopRequest = resolve(state, 'stop.json');
 const children = new Set();
 const appUrl = process.env.PORTLESS_URL;
 if (!appUrl || !process.env.PORT) throw new Error('Start Eventdesk with pnpm dev.');
@@ -26,10 +27,12 @@ let stopping = false;
 let ownsLock = false;
 let postgres;
 let startingDatabase;
+let control;
 
 async function stop(code = 0) {
   if (stopping) return;
   stopping = true;
+  clearInterval(control);
   if (startingDatabase) postgres = await startingDatabase.catch(() => undefined);
   if (ownsLock) await rm(manifest, { force: true });
   const running = [...children];
@@ -54,7 +57,10 @@ async function stop(code = 0) {
   await Promise.all(closed);
   clearTimeout(deadline);
   await postgres?.stop();
-  if (ownsLock) await rm(lock, { force: true });
+  if (ownsLock) {
+    await rm(stopRequest, { force: true });
+    await rm(lock, { force: true });
+  }
   process.exit(code);
 }
 
@@ -112,6 +118,16 @@ try {
     if (!ownsLock) throw new Error('Eventdesk is already running in this checkout. Use pnpm context to find its URL.');
   }
   await rm(manifest, { force: true });
+  await rm(stopRequest, { force: true });
+  control = setInterval(async () => {
+    try {
+      const request = JSON.parse(await readFile(stopRequest, 'utf8'));
+      if (request.pid === process.pid) void stop();
+    } catch (error) {
+      if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) console.error(error.message);
+    }
+  }, 250);
+  control.unref();
   startingDatabase = startDatabase(root, () => { if (!stopping) { console.error('Local Postgres stopped.'); void stop(1); } });
   postgres = await startingDatabase;
   startingDatabase = undefined;

@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "portless run --name eventdesk node scripts/dev.mjs",
     "setup": "portless service install",
+    "stop": "node scripts/stop.mjs",
     "context": "node scripts/environment.mjs",
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/reset.mjs",
