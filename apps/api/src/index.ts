@@ -42,7 +42,7 @@ app.addHook('onResponse', async (request, reply) => {
 
 app.get('/backend/health', async () => {
   await listSessions(db);
-  return { ok: true, service: 'eventdesk-api', version: process.env.DEPLOY_VERSION || process.env.VERCEL_GIT_COMMIT_SHA || 'local', environment: process.env.PORTLESS_URL ?? process.env.VERCEL_URL ?? 'local' };
+  return { ok: true, service: 'eventdesk-api', version: process.env.DEPLOY_VERSION || process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || 'local', environment: process.env.PORTLESS_URL || process.env.VERCEL_URL || 'local' };
 });
 app.get('/backend/sessions', async () => listSessions(db));
 app.get<{ Params: { id: string } }>('/backend/sessions/:id', async (request, reply) => {

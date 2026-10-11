@@ -9,7 +9,7 @@ export function recordEvent(component: string, event: string, fields: Record<str
     at: new Date().toISOString(),
     component,
     event,
-    deploy: process.env.DEPLOY_VERSION ?? process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
+    deploy: process.env.DEPLOY_VERSION || process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || 'local',
     ...fields,
   };
   const line = JSON.stringify(entry);
