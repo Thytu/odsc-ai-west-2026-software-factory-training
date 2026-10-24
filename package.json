@@ -10,6 +10,7 @@
     "setup": "portless service install",
     "stop": "node scripts/stop.mjs",
     "context": "node scripts/environment.mjs",
+    "ask": "node scripts/ask.mjs",
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/reset.mjs",
     "check": "pnpm check:data-boundary && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/worker/tsconfig.json && tsc --noEmit -p tsconfig.scripts.json && pnpm --dir apps/web exec tsc --noEmit",
