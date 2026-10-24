@@ -12,9 +12,11 @@
     "context": "node scripts/environment.mjs",
     "seed": "tsx scripts/seed.ts",
     "reset": "tsx scripts/reset.mjs",
-    "check": "tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/worker/tsconfig.json && tsc --noEmit -p tsconfig.scripts.json && pnpm --dir apps/web exec tsc --noEmit",
+    "check": "pnpm check:data-boundary && tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/worker/tsconfig.json && tsc --noEmit -p tsconfig.scripts.json && pnpm --dir apps/web exec tsc --noEmit",
     "build": "pnpm --dir apps/web build",
-    "db:migrate": "tsx scripts/migrate.ts"
+    "db:migrate": "tsx scripts/migrate.ts",
+    "check:data-boundary": "eslint \"apps/**/*.{ts,tsx}\"",
+    "smoke:reminder": "node --import tsx scripts/smoke-reminder.mjs"
   },
   "dependencies": {
     "@eventdesk/data": "workspace:*"
@@ -25,7 +27,9 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.0",
     "@types/pg": "8.20.0",
-    "pg": "8.23.1"
+    "pg": "8.23.1",
+    "eslint": "9.39.5",
+    "typescript-eslint": "8.66.0"
   },
   "type": "module",
   "optionalDependencies": {
