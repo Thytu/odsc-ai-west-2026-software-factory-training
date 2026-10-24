@@ -2,7 +2,7 @@ const token = process.env.VERCEL_PREVIEW_CLEANUP_TOKEN;
 const project = process.env.VERCEL_PROJECT_ID;
 const team = process.env.VERCEL_TEAM_ID;
 const branch = process.env.PREVIEW_BRANCH;
-if (!token || !project || !team || !branch || ['main', 'student-start'].includes(branch)) throw new Error('Expected a project, team, token, and non-production branch.');
+if (!token || !project || !team || !branch || ['main', 'workshop-start'].includes(branch)) throw new Error('Expected a project, team, token, and non-production branch.');
 
 async function api(path, method = 'GET') {
   const url = new URL(path, 'https://api.vercel.com');
