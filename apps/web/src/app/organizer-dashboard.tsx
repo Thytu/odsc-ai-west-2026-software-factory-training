@@ -17,7 +17,7 @@ type Session = {
 };
 type Attendee = { id: string; name: string; email: string; company: string };
 type Registration = Attendee & { status: string };
-type Detail = Session & { registrations: Registration[] };
+type Detail = Session & { registrations: Registration[]; reminder_notification_count: number };
 type Activity = { id: string; kind: string; session_title: string; actor: string; details_json: string; created_at: string };
 
 async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -128,6 +128,7 @@ export default function OrganizerDashboard() {
             <h2 className="text-lg font-bold">Session details</h2>
             {!active || !detail || detail.id !== selectedId ? <p className="mt-5 text-sm text-[#728095]">Select a session to manage it.</p> : <>
               <p className="mt-1 text-sm text-[#728095]">{active.title}</p>
+              <p className="mt-3 text-sm text-[#728095]">Reminder notifications created: <span className="font-semibold text-[#334761]">{detail.reminder_notification_count}</span></p>
               <div className="mt-6 border-t border-[#edf0f3] pt-5"><label htmlFor="room" className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#68778b]">Assigned room</label>
                 <div className="flex gap-2"><input id="room" value={room} onChange={(event) => setRoom(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-[#dbe3eb] px-3 py-2 text-sm outline-none focus:border-[#5c87b7]" /><button disabled={busy || room.trim() === active.room} onClick={() => runAction(() => readJson(`/sessions/${selectedId}/room`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ room }) }), 'Room updated.')} className="rounded-lg bg-[#263c5c] px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45">Save</button></div>
               </div>
