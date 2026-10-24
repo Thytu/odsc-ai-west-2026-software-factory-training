@@ -5,6 +5,7 @@ import {
   changeRoom,
   enqueueJob,
   failJob,
+  getSession,
   getAttendeeNotifications,
   getAttendeeSchedule,
   listActivity,
@@ -14,23 +15,6 @@ import {
   registerAttendee,
 } from '@eventdesk/data';
 import { recordEvent } from '@eventdesk/data/log';
-
-type Database = ReturnType<typeof openDatabase>;
-
-async function getSession(db: Database, id: string) {
-  const session = (await db.query('SELECT * FROM sessions WHERE id = $1', [id])).rows[0];
-  if (!session) return null;
-  const registrations = (await db.query(`
-    SELECT a.id, a.name, a.email, a.company, r.status
-    FROM registrations r JOIN attendees a ON a.id = r.attendee_id
-    WHERE r.session_id = $1 ORDER BY a.name
-  `, [id])).rows;
-  const reminderNotificationCount = (await db.query(`
-    SELECT COUNT(*)::integer AS count FROM outbox
-    WHERE session_id = $1 AND kind = 'session_reminder'
-  `, [id])).rows[0];
-  return { ...session, registrations, reminder_notification_count: reminderNotificationCount.count };
-}
 
 const db = openDatabase();
 const app = Fastify({ logger: false, genReqId: () => randomUUID() });

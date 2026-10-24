@@ -48,6 +48,21 @@ export async function listSessions(db: Database) {
   `)).rows;
 }
 
+export async function getSession(db: Database, id: string) {
+  const session = (await db.query('SELECT * FROM sessions WHERE id = $1', [id])).rows[0];
+  if (!session) return null;
+  const registrations = (await db.query(`
+    SELECT a.id, a.name, a.email, a.company, r.status
+    FROM registrations r JOIN attendees a ON a.id = r.attendee_id
+    WHERE r.session_id = $1 ORDER BY a.name
+  `, [id])).rows;
+  const reminderNotificationCount = (await db.query(`
+    SELECT COUNT(*)::integer AS count FROM outbox
+    WHERE session_id = $1 AND kind = 'session_reminder'
+  `, [id])).rows[0];
+  return { ...session, registrations, reminder_notification_count: reminderNotificationCount.count };
+}
+
 export async function listAttendees(db: Database) {
   return (await db.query('SELECT * FROM attendees ORDER BY name')).rows;
 }
@@ -132,4 +147,12 @@ export async function failJob(db: Database, jobId: string) {
 export async function insertOutbox(db: Database, jobId: string, sessionId: string, attendeeId: string, kind: string, subject: string, body: string) {
   await db.query('INSERT INTO outbox (id, attendee_id, session_id, job_id, kind, subject, body, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (job_id, attendee_id) DO NOTHING',
     [randomUUID(), attendeeId, sessionId, jobId, kind, subject, body, new Date().toISOString()]);
+}
+
+export async function getReminderSession(db: Database, sessionId: string) {
+  return (await db.query('SELECT id, title, room, starts_at FROM sessions WHERE id = $1', [sessionId])).rows[0];
+}
+
+export async function getRegisteredAttendeeIds(db: Database, sessionId: string): Promise<Array<{ id: string }>> {
+  return (await db.query("SELECT a.id FROM registrations r JOIN attendees a ON a.id = r.attendee_id WHERE r.session_id = $1 AND r.status = 'registered'", [sessionId])).rows;
 }
