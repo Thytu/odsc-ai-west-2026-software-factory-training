@@ -7,6 +7,7 @@ import {
   failJob,
   getAttendeeNotifications,
   getAttendeeSchedule,
+  getSessionDetail,
   listActivity,
   listAttendees,
   listSessions,
@@ -14,19 +15,6 @@ import {
   registerAttendee,
 } from '@eventdesk/data';
 import { recordEvent } from '@eventdesk/data/log';
-
-type Database = ReturnType<typeof openDatabase>;
-
-async function getSession(db: Database, id: string) {
-  const session = (await db.query('SELECT * FROM sessions WHERE id = $1', [id])).rows[0];
-  if (!session) return null;
-  const registrations = (await db.query(`
-    SELECT a.id, a.name, a.email, a.company, r.status
-    FROM registrations r JOIN attendees a ON a.id = r.attendee_id
-    WHERE r.session_id = $1 ORDER BY a.name
-  `, [id])).rows;
-  return { ...session, registrations };
-}
 
 const db = openDatabase();
 const app = Fastify({ logger: false, genReqId: () => randomUUID() });
@@ -46,7 +34,7 @@ app.get('/backend/health', async () => {
 });
 app.get('/backend/sessions', async () => listSessions(db));
 app.get<{ Params: { id: string } }>('/backend/sessions/:id', async (request, reply) => {
-  const session = await getSession(db, request.params.id);
+  const session = await getSessionDetail(db, request.params.id);
   if (!session) return reply.code(404).send({ error: 'Session not found' });
   return session;
 });
@@ -88,7 +76,7 @@ app.patch<{ Params: { id: string } }>('/backend/sessions/:id/room', async (reque
 });
 
 app.post<{ Params: { id: string } }>('/backend/sessions/:id/reminders', async (request, reply) => {
-  const session = await getSession(db, request.params.id);
+  const session = await getSessionDetail(db, request.params.id);
   if (!session) return reply.code(404).send({ error: 'Session not found' });
   const jobId = await enqueueJob(db, 'session_reminder', { sessionId: request.params.id, requestId: request.id });
   if (process.env.VERCEL) {

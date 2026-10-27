@@ -17,7 +17,7 @@ type Session = {
 };
 type Attendee = { id: string; name: string; email: string; company: string };
 type Registration = Attendee & { status: string };
-type Detail = Session & { registrations: Registration[] };
+type Detail = Session & { registrations: Registration[]; reminder_count: number };
 type Activity = { id: string; kind: string; session_title: string; actor: string; details_json: string; created_at: string };
 
 async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -133,6 +133,7 @@ export default function OrganizerDashboard() {
               </div>
               <div className="mt-6 border-t border-[#edf0f3] pt-5"><label htmlFor="attendee" className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#68778b]">Add registration</label><div className="flex gap-2"><select id="attendee" value={attendeeId} onChange={(event) => setAttendeeId(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-[#dbe3eb] bg-white px-3 py-2 text-sm"><option value="">Choose attendee</option>{attendees.map((attendee) => <option key={attendee.id} value={attendee.id}>{attendee.name}</option>)}</select><button disabled={busy || !attendeeId} onClick={() => runAction(() => readJson(`/sessions/${selectedId}/registrations`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ attendeeId }) }), 'Registration saved.')} className="rounded-lg border border-[#c8d4e0] px-3 py-2 text-sm font-semibold text-[#334761] disabled:opacity-45">Add</button></div></div>
               <div className="mt-6 border-t border-[#edf0f3] pt-5"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Registered attendees</h3><span className="text-xs text-[#8492a3]">{detail.registrations.length}</span></div><div className="space-y-2">{detail.registrations.length ? detail.registrations.map((person) => <Link key={person.id} href={`/attendee/${person.id}`} className="flex items-center justify-between rounded-lg bg-[#f8fafc] px-3 py-2 text-sm hover:bg-[#eef4fa]"><span>{person.name}</span><span className="text-xs text-[#8291a4]">View schedule ↗</span></Link>) : <p className="text-sm text-[#8190a1]">No registrations yet.</p>}</div></div>
+              <div className="mt-6 flex items-center justify-between border-t border-[#edf0f3] pt-5"><h3 className="text-sm font-bold">Reminders sent</h3><span data-testid="reminder-count" className="text-xs text-[#8492a3]">{detail.reminder_count}</span></div>
               <button disabled={busy} onClick={() => runAction(() => readJson(`/sessions/${selectedId}/reminders`, { method: 'POST' }), 'Reminder queued for registered attendees.')} className="mt-6 w-full rounded-lg bg-[#eaf1f8] px-4 py-3 text-sm font-bold text-[#315a84] hover:bg-[#dfeaf5] disabled:opacity-45">Send session reminder</button>
             </>}
           </section>

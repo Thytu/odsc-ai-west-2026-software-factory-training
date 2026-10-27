@@ -40,6 +40,8 @@ try {
   const next = await data.enqueueJob(db, 'session_reminder', { sessionId: 'session-101' });
   await processNextJob(db, next);
   assert.equal(await count('session-101'), 6);
+  assert.equal((await data.getSessionDetail(db, 'session-101')).reminder_count, 6);
+  assert.equal((await data.getSessionDetail(db, 'session-102')).reminder_count, 0);
   assert.ok((await data.getAttendeeNotifications(db, 'attendee-101')).some(row => row.body.includes('New room')));
   console.log('Reminder count, recipients, updated room, duplicate delivery, and notification-kind filtering verified.');
 } finally {
