@@ -13,3 +13,4 @@ pnpm install
 pnpm run setup
 pnpm dev
 ```
+https://docs.google.com/presentation/d/1LOyYIGpTmO-zOKVZoiXS2SMj9dRW5sm7w1Hs9iwSvAQ/edit?usp=sharing
