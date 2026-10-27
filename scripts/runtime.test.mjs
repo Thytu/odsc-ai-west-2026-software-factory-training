@@ -118,7 +118,9 @@ test('named HTTPS worktrees run isolated frontend, API, worker, and database sta
     await call(`${contexts[0].api}/sessions/session-101/room`, 'PATCH', { room });
     await call(`${contexts[0].api}/sessions/session-101/reminders`, 'POST');
     await until(async () => (await call(contexts[0].url + noticePath)).some(notice => notice.body.includes(room)), 30000);
+    assert.equal((await call(`${contexts[0].api}/sessions/session-101`)).reminders_sent, 2 * original.registrations.length);
     assert.equal((await call(`${contexts[1].api}/sessions/session-101`)).room, original.room);
+    assert.equal((await call(`${contexts[1].api}/sessions/session-101`)).reminders_sent, original.registrations.length);
     assert.equal((await call(contexts[1].url + noticePath)).length, 1);
     t.diagnostic('A room change and worker notification in A leave B unchanged.');
     for (const checkout of checkouts) await complete(launch(pnpm, ['stop'], checkout));
