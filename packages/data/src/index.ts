@@ -135,6 +135,10 @@ export async function enqueueJob(db: Database, kind: string, payload: any, runAt
   return id;
 }
 
+export async function getJobStatus(db: Database, jobId: string) {
+  return ((await db.query('SELECT id, status FROM jobs WHERE id = $1', [jobId])).rows[0] ?? null) as { id: string; status: string } | null;
+}
+
 export async function claimJob(db: Database, jobId?: string) {
   const job = (await db.query(jobId
     ? "SELECT * FROM jobs WHERE id = $1 AND status IN ('pending', 'failed') AND run_at <= $2 FOR UPDATE SKIP LOCKED"

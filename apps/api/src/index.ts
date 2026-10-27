@@ -7,6 +7,7 @@ import {
   failJob,
   getAttendeeNotifications,
   getAttendeeSchedule,
+  getJobStatus,
   getSessionDetail,
   listActivity,
   listAttendees,
@@ -52,6 +53,11 @@ app.get<{ Params: { id: string } }>('/backend/attendees/:id/notifications', asyn
   return getAttendeeNotifications(db, request.params.id);
 });
 app.get('/backend/activity', async () => listActivity(db));
+app.get<{ Params: { id: string } }>('/backend/jobs/:id', async (request, reply) => {
+  const job = await getJobStatus(db, request.params.id);
+  if (!job) return reply.code(404).send({ error: 'Job not found' });
+  return job;
+});
 
 app.post<{ Params: { id: string } }>('/backend/sessions/:id/registrations', async (request, reply) => {
   const body: any = request.body;
