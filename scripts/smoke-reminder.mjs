@@ -26,7 +26,7 @@ try {
   const data = await import('@eventdesk/data');
   const { processNextJob } = await import('../apps/worker/src/process-job');
   db = data.openDatabase();
-  const count = async (sessionId) => (await db.query("SELECT COUNT(*)::integer AS count FROM outbox WHERE session_id = $1 AND kind = 'session_reminder'", [sessionId])).rows[0].count;
+  const count = sessionId => data.countSessionReminders(db, sessionId);
   assert.equal(await count('session-101'), 0);
   const first = await processNextJob(db);
   assert.deepEqual(first?.recipients.sort(), ['attendee-101', 'attendee-102', 'attendee-103']);
@@ -40,6 +40,7 @@ try {
   const next = await data.enqueueJob(db, 'session_reminder', { sessionId: 'session-101' });
   await processNextJob(db, next);
   assert.equal(await count('session-101'), 6);
+  assert.equal((await data.getSession(db, 'session-101')).reminders_sent, 6);
   assert.ok((await data.getAttendeeNotifications(db, 'attendee-101')).some(row => row.body.includes('New room')));
   console.log('Reminder count, recipients, updated room, duplicate delivery, and notification-kind filtering verified.');
 } finally {
