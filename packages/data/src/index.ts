@@ -48,6 +48,29 @@ export async function listSessions(db: Database) {
   `)).rows;
 }
 
+export async function getSessionDetail(db: Database, sessionId: string) {
+  const session = (await db.query(`
+    SELECT s.*, (SELECT COUNT(*)::integer FROM outbox o WHERE o.session_id = s.id AND o.kind = 'session_reminder') AS reminder_count
+    FROM sessions s WHERE s.id = $1
+  `, [sessionId])).rows[0];
+  if (!session) return null;
+  const registrations = (await db.query(`
+    SELECT a.id, a.name, a.email, a.company, r.status
+    FROM registrations r JOIN attendees a ON a.id = r.attendee_id
+    WHERE r.session_id = $1 ORDER BY a.name
+  `, [sessionId])).rows;
+  return { ...session, registrations };
+}
+
+export async function getReminderSession(db: Database, sessionId: string) {
+  return ((await db.query('SELECT id, title, room, starts_at FROM sessions WHERE id = $1', [sessionId])).rows[0] ?? null) as
+    { id: string; title: string; room: string; starts_at: string } | null;
+}
+
+export async function listReminderRecipients(db: Database, sessionId: string) {
+  return (await db.query("SELECT a.id FROM registrations r JOIN attendees a ON a.id = r.attendee_id WHERE r.session_id = $1 AND r.status = 'registered'", [sessionId])).rows as Array<{ id: string }>;
+}
+
 export async function listAttendees(db: Database) {
   return (await db.query('SELECT * FROM attendees ORDER BY name')).rows;
 }
@@ -110,6 +133,10 @@ export async function enqueueJob(db: Database, kind: string, payload: any, runAt
   await db.query('INSERT INTO jobs (id, kind, payload_json, run_at, created_at) VALUES ($1, $2, $3, $4, $5)',
     [id, kind, JSON.stringify(payload), runAt, new Date().toISOString()]);
   return id;
+}
+
+export async function getJobStatus(db: Database, jobId: string) {
+  return ((await db.query('SELECT id, status FROM jobs WHERE id = $1', [jobId])).rows[0] ?? null) as { id: string; status: string } | null;
 }
 
 export async function claimJob(db: Database, jobId?: string) {

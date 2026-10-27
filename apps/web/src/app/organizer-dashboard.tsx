@@ -17,7 +17,7 @@ type Session = {
 };
 type Attendee = { id: string; name: string; email: string; company: string };
 type Registration = Attendee & { status: string };
-type Detail = Session & { registrations: Registration[] };
+type Detail = Session & { registrations: Registration[]; reminder_count: number };
 type Activity = { id: string; kind: string; session_title: string; actor: string; details_json: string; created_at: string };
 
 async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -25,6 +25,17 @@ async function readJson<T>(path: string, init?: RequestInit): Promise<T> {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? 'The request failed');
   return data as T;
+}
+
+async function sendReminder(sessionId: string) {
+  const { jobId } = await readJson<{ jobId: string }>(`/sessions/${sessionId}/reminders`, { method: 'POST' });
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const job = await readJson<{ status: string }>(`/jobs/${jobId}`);
+    if (job.status === 'completed') return;
+    if (job.status === 'failed') throw new Error('The reminder could not be delivered. Please try again.');
+    await new Promise((done) => setTimeout(done, 500));
+  }
+  throw new Error('The reminder is queued but still being delivered. Check back shortly.');
 }
 
 function formatDate(value: string) {
@@ -133,7 +144,8 @@ export default function OrganizerDashboard() {
               </div>
               <div className="mt-6 border-t border-[#edf0f3] pt-5"><label htmlFor="attendee" className="mb-2 block text-xs font-bold uppercase tracking-wider text-[#68778b]">Add registration</label><div className="flex gap-2"><select id="attendee" value={attendeeId} onChange={(event) => setAttendeeId(event.target.value)} className="min-w-0 flex-1 rounded-lg border border-[#dbe3eb] bg-white px-3 py-2 text-sm"><option value="">Choose attendee</option>{attendees.map((attendee) => <option key={attendee.id} value={attendee.id}>{attendee.name}</option>)}</select><button disabled={busy || !attendeeId} onClick={() => runAction(() => readJson(`/sessions/${selectedId}/registrations`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ attendeeId }) }), 'Registration saved.')} className="rounded-lg border border-[#c8d4e0] px-3 py-2 text-sm font-semibold text-[#334761] disabled:opacity-45">Add</button></div></div>
               <div className="mt-6 border-t border-[#edf0f3] pt-5"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Registered attendees</h3><span className="text-xs text-[#8492a3]">{detail.registrations.length}</span></div><div className="space-y-2">{detail.registrations.length ? detail.registrations.map((person) => <Link key={person.id} href={`/attendee/${person.id}`} className="flex items-center justify-between rounded-lg bg-[#f8fafc] px-3 py-2 text-sm hover:bg-[#eef4fa]"><span>{person.name}</span><span className="text-xs text-[#8291a4]">View schedule ↗</span></Link>) : <p className="text-sm text-[#8190a1]">No registrations yet.</p>}</div></div>
-              <button disabled={busy} onClick={() => runAction(() => readJson(`/sessions/${selectedId}/reminders`, { method: 'POST' }), 'Reminder queued for registered attendees.')} className="mt-6 w-full rounded-lg bg-[#eaf1f8] px-4 py-3 text-sm font-bold text-[#315a84] hover:bg-[#dfeaf5] disabled:opacity-45">Send session reminder</button>
+              <div className="mt-6 flex items-center justify-between border-t border-[#edf0f3] pt-5"><h3 className="text-sm font-bold">Reminders sent</h3><span data-testid="reminder-count" className="text-xs text-[#8492a3]">{detail.reminder_count}</span></div>
+              <button disabled={busy} onClick={() => runAction(() => sendReminder(selectedId), 'Reminder sent to registered attendees.')} className="mt-6 w-full rounded-lg bg-[#eaf1f8] px-4 py-3 text-sm font-bold text-[#315a84] hover:bg-[#dfeaf5] disabled:opacity-45">Send session reminder</button>
             </>}
           </section>
           <section className="rounded-2xl border border-[#e6ebf1] bg-white p-6"><h2 className="text-base font-bold">Recent activity</h2><div className="mt-4 space-y-4">{activity.length ? activity.slice(0, 4).map((item) => <div key={item.id} className="border-l-2 border-[#bfd3e7] pl-3"><p className="text-sm font-semibold">Room updated · {item.session_title}</p><p className="mt-1 text-xs text-[#8290a0]">{formatDate(item.created_at)} by {item.actor}</p></div>) : <p className="text-sm text-[#8290a0]">Changes to sessions will appear here.</p>}</div></section>
