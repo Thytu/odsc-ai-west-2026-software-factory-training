@@ -48,6 +48,29 @@ export async function listSessions(db: Database) {
   `)).rows;
 }
 
+export async function getSession(db: Database, sessionId: string) {
+  const session = (await db.query('SELECT * FROM sessions WHERE id = $1', [sessionId])).rows[0];
+  if (!session) return null;
+  const registrations = (await db.query(`
+    SELECT a.id, a.name, a.email, a.company, r.status
+    FROM registrations r JOIN attendees a ON a.id = r.attendee_id
+    WHERE r.session_id = $1 ORDER BY a.name
+  `, [sessionId])).rows;
+  return { ...session, registrations, reminders_sent: await countSessionReminders(db, sessionId) };
+}
+
+export async function countSessionReminders(db: Database, sessionId: string): Promise<number> {
+  return (await db.query("SELECT COUNT(*)::integer AS count FROM outbox WHERE session_id = $1 AND kind = 'session_reminder'", [sessionId])).rows[0].count;
+}
+
+export async function getReminderSession(db: Database, sessionId: string) {
+  return (await db.query('SELECT id, title, room, starts_at FROM sessions WHERE id = $1', [sessionId])).rows[0] ?? null;
+}
+
+export async function listRegisteredAttendeeIds(db: Database, sessionId: string): Promise<string[]> {
+  return (await db.query("SELECT a.id FROM registrations r JOIN attendees a ON a.id = r.attendee_id WHERE r.session_id = $1 AND r.status = 'registered'", [sessionId])).rows.map(row => row.id);
+}
+
 export async function listAttendees(db: Database) {
   return (await db.query('SELECT * FROM attendees ORDER BY name')).rows;
 }

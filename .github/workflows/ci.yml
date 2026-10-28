@@ -41,4 +41,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: pnpm smoke:reminder
       - run: pnpm build
